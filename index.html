@@ -431,10 +431,10 @@ async function startGuestChat() {
     const oldText = btn.textContent;
     btn.textContent = 'Loading...';
     try {
-        await AuthService.initApp();
         const name = document.getElementById('guestName')?.value?.trim();
         currentUser = await AuthService.createGuest(name);
         enterChatApp(true);
+        AuthService.initApp().catch(() => {});
     } catch (err) {
         console.error('startGuestChat:', err);
         showLoginError(err.message || 'Chat shuru nahi ho saki. Dobara try karein.');

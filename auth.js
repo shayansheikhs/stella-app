@@ -38,7 +38,20 @@
       return false;
     }
 
-    firebaseApp = firebase.initializeApp(f);
+    try {
+      if (firebase.apps && firebase.apps.length) {
+        firebaseApp = firebase.app();
+      } else {
+        firebaseApp = firebase.initializeApp(f);
+      }
+    } catch (e) {
+      if (e?.code === 'app/duplicate-app') {
+        firebaseApp = firebase.app();
+      } else {
+        console.warn('Firebase init error:', e);
+        return false;
+      }
+    }
     firebaseAuth = firebase.auth();
     firestore = firebase.firestore();
     return true;
@@ -177,18 +190,26 @@
     const session = { uid, name: guestName, email, role: 'user', isGuest: true };
     saveLocalSession(session);
 
-    if (isFirebaseReady() && firestore) {
-      try {
-        await firestore.collection('users').doc(uid).set({
-          uid, name: guestName, email,
-          role: 'user', messageCount: 0,
-          createdAt: Date.now(), lastLogin: Date.now(),
-          isGuest: true
-        });
-      } catch (_) {}
-    }
+    syncGuestToFirestore(session).catch(() => {});
 
     return session;
+  }
+
+  async function syncGuestToFirestore(session) {
+    if (!(await initFirebase()) || !firestore) return;
+    await Promise.race([
+      firestore.collection('users').doc(session.uid).set({
+        uid: session.uid,
+        name: session.name,
+        email: session.email,
+        role: 'user',
+        messageCount: 0,
+        createdAt: Date.now(),
+        lastLogin: Date.now(),
+        isGuest: true
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+    ]);
   }
 
   async function localSignIn(email, password) {
@@ -320,16 +341,26 @@
       return getLocalSession();
     }
     return new Promise((resolve) => {
-      const unsub = firebaseAuth.onAuthStateChanged(async (user) => {
+      let settled = false;
+      const done = (val) => {
+        if (settled) return;
+        settled = true;
+        resolve(val);
+      };
+      const unsub = firebaseAuth.onAuthStateChanged((user) => {
         unsub();
-        if (!user) return resolve(null);
-        resolve({
+        if (!user) return done(null);
+        done({
           uid: user.uid,
           name: user.displayName || 'User',
           email: user.email.toLowerCase(),
           role: isAdminEmail(user.email) ? 'admin' : 'user'
         });
       });
+      setTimeout(() => {
+        try { unsub(); } catch (_) {}
+        done(getLocalSession());
+      }, 4000);
     });
   }
 
