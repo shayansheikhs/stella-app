@@ -1,0 +1,38 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/admin"
+  to = "/admin.html"
+  status = 200
+
+[[redirects]]
+  from = "/teaching"
+  to = "/teaching/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/teaching/"
+  to = "/teaching/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/teaching.html"
+  to = "/teaching/index.html"
+  status = 301
+
+[[redirects]]
+  from = "/teachig"
+  to = "/teaching/index.html"
+  status = 301
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/teaching/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

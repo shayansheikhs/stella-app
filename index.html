@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI Connect — login karke chat karein">
+    <title>AI Connect</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0EA5E9;
+            --primary-dark: #0284C7;
+            --bg: #0B1220;
+            --surface: #111827;
+            --surface2: #1F2937;
+            --text: #F9FAFB;
+            --muted: #9CA3AF;
+            --border: #374151;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 8px;
+        }
+        .app {
+            width: 100%;
+            max-width: 720px;
+            height: 96vh;
+            background: var(--surface);
+            border-radius: 20px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.45);
+        }
+        .login-screen {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 28px 24px;
+            overflow-y: auto;
+        }
+        .login-screen.hidden { display: none; }
+        .login-logo { text-align: center; margin-bottom: 28px; }
+        .login-logo .icon {
+            width: 64px; height: 64px; margin: 0 auto 14px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #6366F1);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px;
+        }
+        .login-logo h1 { font-family: 'Outfit', sans-serif; font-size: 1.5rem; color: #7DD3FC; }
+        .login-logo p { color: var(--muted); font-size: 0.88rem; margin-top: 6px; }
+        .auth-tabs {
+            display: flex; background: var(--bg); border-radius: 12px;
+            padding: 4px; margin-bottom: 20px; border: 1px solid var(--border);
+        }
+        .auth-tab {
+            flex: 1; padding: 10px; border: none; background: none;
+            color: var(--muted); font-size: 0.9rem; font-weight: 600;
+            cursor: pointer; border-radius: 8px;
+        }
+        .auth-tab.active { background: var(--surface2); color: #7DD3FC; }
+        .auth-form { display: none; flex-direction: column; gap: 14px; }
+        .auth-form.active { display: flex; }
+        .field label { display: block; font-size: 0.78rem; color: var(--muted); margin-bottom: 6px; }
+        .field input {
+            width: 100%; background: var(--bg); border: 1px solid var(--border);
+            color: var(--text); padding: 12px 14px; border-radius: 10px;
+            font-size: 0.92rem; outline: none;
+        }
+        .field input:focus { border-color: var(--primary); }
+        .auth-btn {
+            margin-top: 6px; padding: 13px; border: none; border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+        }
+        .auth-btn:disabled { opacity: 0.5; }
+        .login-footer {
+            text-align: center; margin-top: 18px; font-size: 0.78rem; color: var(--muted);
+        }
+        .login-footer a { color: #C4B5FD; text-decoration: none; }
+        .help-box {
+            background: rgba(139,92,246,0.1); border: 1px solid #8B5CF6;
+            color: #DDD6FE; padding: 12px 14px; border-radius: 10px;
+            font-size: 0.82rem; margin-bottom: 16px; line-height: 1.5;
+        }
+        .chat-app { display: none; flex: 1; flex-direction: column; overflow: hidden; }
+        .chat-app.visible { display: flex; }
+        .header {
+            padding: 14px 18px;
+            background: linear-gradient(90deg, #0f172a, #111827);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #6366F1);
+            display: flex; align-items: center; justify-content: center; font-size: 18px;
+        }
+        .brand h1 { font-family: 'Outfit', sans-serif; font-size: 1rem; color: #7DD3FC; }
+        .brand p { font-size: 0.72rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .logout-btn {
+            padding: 7px 12px; border: 1px solid var(--border); background: var(--bg);
+            color: var(--muted); border-radius: 8px; font-size: 0.75rem; cursor: pointer;
+        }
+        .status-dot {
+            display: inline-block; width: 8px; height: 8px; background: #22C55E;
+            border-radius: 50%; margin-right: 6px; box-shadow: 0 0 8px #22C55E;
+        }
+        .chat-area {
+            flex: 1; overflow-y: auto; padding: 20px 16px;
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .bubble-row { display: flex; gap: 10px; max-width: 92%; }
+        .bubble-row.user { align-self: flex-end; flex-direction: row-reverse; }
+        .bubble-row.ai { align-self: flex-start; }
+        .bubble-icon {
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0; margin-top: 4px;
+        }
+        .bubble-row.user .bubble-icon { background: var(--primary); }
+        .bubble-row.ai .bubble-icon { background: var(--surface2); }
+        .bubble-row.admin .bubble-icon { background: #7C3AED; }
+        .bubble-row.admin .bubble {
+            background: rgba(124, 58, 237, 0.2);
+            border: 1px solid #7C3AED;
+            border-bottom-left-radius: 4px;
+        }
+        .live-banner {
+            background: rgba(124, 58, 237, 0.15);
+            border: 1px solid #7C3AED;
+            color: #C4B5FD;
+            padding: 8px 14px;
+            font-size: 0.8rem;
+            text-align: center;
+            display: none;
+        }
+        .live-banner.show { display: block; }
+        .bubble {
+            padding: 12px 14px; border-radius: 16px; font-size: 0.92rem;
+            line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+        }
+        .bubble-row.user .bubble {
+            background: linear-gradient(135deg, #0284C7, #0EA5E9);
+            border-bottom-right-radius: 4px;
+        }
+        .bubble-row.ai .bubble {
+            background: var(--surface2); border: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+        }
+        .typing {
+            display: flex; gap: 5px; padding: 14px 16px; align-self: flex-start;
+            background: var(--surface2); border: 1px solid var(--border); border-radius: 16px;
+        }
+        .typing span {
+            width: 7px; height: 7px; background: var(--muted); border-radius: 50%;
+            animation: bounce 1.2s infinite;
+        }
+        .typing span:nth-child(2) { animation-delay: 0.15s; }
+        .typing span:nth-child(3) { animation-delay: 0.3s; }
+        @keyframes bounce {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+            30% { transform: translateY(-5px); opacity: 1; }
+        }
+        .input-bar {
+            padding: 14px 16px; border-top: 1px solid var(--border);
+            background: var(--bg); flex-shrink: 0;
+        }
+        .input-wrap { display: flex; gap: 10px; align-items: flex-end; }
+        #chatInput {
+            flex: 1; background: var(--surface); border: 1px solid var(--border);
+            color: var(--text); padding: 12px 14px; border-radius: 14px;
+            font-size: 0.92rem; font-family: inherit; resize: none; outline: none;
+            max-height: 120px;
+        }
+        #chatInput:focus { border-color: var(--primary); }
+        .send-btn {
+            width: 46px; height: 46px; border: none; border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            color: white; font-size: 18px; cursor: pointer;
+        }
+        .send-btn:disabled { opacity: 0.45; }
+        .toolbar {
+            display: flex; justify-content: space-between; margin-top: 8px;
+            font-size: 0.72rem; color: var(--muted);
+        }
+        .toolbar button {
+            background: none; border: 1px solid var(--border); color: var(--muted);
+            padding: 6px 12px; border-radius: 8px; font-size: 0.78rem; cursor: pointer;
+        }
+        .error {
+            background: rgba(239,68,68,0.12); border: 1px solid #EF4444;
+            color: #FCA5A5; padding: 10px 14px; border-radius: 10px;
+            font-size: 0.85rem; margin: 0 16px; display: none;
+        }
+        .error.show { display: block; }
+        @media (max-width: 520px) {
+            .app { height: 100vh; border-radius: 0; }
+            body { padding: 0; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <div class="login-screen" id="loginScreen">
+        <div class="login-logo">
+            <div class="icon">💬</div>
+            <h1 id="brandTitle">AI Connect</h1>
+            <p id="brandTagline">Login karein, chat shuru karein</p>
+        </div>
+        <div class="auth-tabs">
+            <button class="auth-tab active" id="tabLogin" type="button">Login</button>
+            <button class="auth-tab" id="tabSignup" type="button">Naya Account</button>
+        </div>
+        <div class="login-error" id="loginError"></div>
+        <form class="auth-form active" id="formLogin" onsubmit="handleLogin(event)">
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="loginEmail" required autocomplete="email" placeholder="aap@email.com">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="loginPassword" required minlength="6" autocomplete="current-password" placeholder="Password">
+            </div>
+            <button class="auth-btn" type="submit" id="loginBtn">Login →</button>
+        </form>
+        <form class="auth-form" id="formSignup" onsubmit="handleSignup(event)">
+            <div class="field">
+                <label>Naam</label>
+                <input type="text" id="signupName" required autocomplete="name" placeholder="Aap ka naam">
+            </div>
+            <div class="field">
+                <label>Email</label>
+                <input type="email" id="signupEmail" required autocomplete="email" placeholder="aap@email.com">
+            </div>
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="signupPassword" required minlength="6" autocomplete="new-password" placeholder="Kam az kam 6 letters">
+            </div>
+            <button class="auth-btn" type="submit" id="signupBtn">Account banayein →</button>
+        </form>
+        <div class="login-footer">
+            Admin ho? <a href="admin.html">🛡️ Admin Dashboard yahan kholein</a>
+        </div>
+    </div>
+
+    <div class="chat-app" id="chatApp">
+        <header class="header">
+            <div class="brand">
+                <div class="avatar">💬</div>
+                <div>
+                    <h1 id="chatBrand">AI Connect</h1>
+                    <p><span class="status-dot"></span><span id="userGreeting">Connected</span></p>
+                </div>
+            </div>
+            <button class="logout-btn" type="button" onclick="logout()">Logout</button>
+        </header>
+        <div id="liveBanner" class="live-banner">🟣 Shayan ab live hain — seedhi baat ho rahi hai!</div>
+        <div id="errorBox" class="error"></div>
+        <main class="chat-area" id="chatArea"></main>
+        <div class="input-bar">
+            <div class="input-wrap">
+                <textarea id="chatInput" rows="1" placeholder="Hello likhein ya apna sawal..."></textarea>
+                <button class="send-btn" id="sendBtn" type="button" onclick="sendMessage()">➤</button>
+            </div>
+            <div class="toolbar">
+                <button type="button" onclick="clearChat()">🗑 Nayi baat</button>
+                <span>Enter = bhejo</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="app-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="auth.js"></script>
+<script src="chat-service.js"></script>
+<script>
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_MODELS = ['llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'gemma2-9b-it'];
+
+let currentUser = null;
+let chatHistory = [];
+let isLoading = false;
+let inboxMessages = [];
+let renderedMsgIds = new Set();
+let adminLive = false;
+
+function cfg() { return window.APP_CONFIG || {}; }
+
+function systemPrompt() {
+    const owner = cfg().ownerName || 'Shayan';
+    return `You are the AI assistant for ${owner}. ${owner} abhi busy hai lekin jald connect honge.
+Tum user se friendly baat karte raho jab tak ${owner} live na ho jaye.
+User ko engage rakho — sawal poochein, jawab do, Roman Urdu ya English mein.
+Kabhi batao "${owner} jald yahan aayenge" lekin conversation band mat karo.
+Replies concise aur helpful rakho. User ka naam use karo.`;
+}
+
+function showLoginError(msg) {
+    const el = document.getElementById('loginError');
+    el.textContent = msg || '';
+    el.classList.toggle('show', !!msg);
+}
+
+function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = msg || '';
+    box.classList.toggle('show', !!msg);
+}
+
+function switchAuthTab(tab) {
+    const isLogin = tab === 'login';
+    document.getElementById('tabLogin').classList.toggle('active', isLogin);
+    document.getElementById('tabSignup').classList.toggle('active', !isLogin);
+    document.getElementById('formLogin').classList.toggle('active', isLogin);
+    document.getElementById('formSignup').classList.toggle('active', !isLogin);
+    showLoginError('');
+}
+
+function esc(str) {
+    return String(str || '')
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function addBubble(text, type) {
+    const area = document.getElementById('chatArea');
+    const row = document.createElement('div');
+    const isUser = type === 'user';
+    row.className = 'bubble-row ' + (isUser ? 'user' : type);
+    const icon = isUser ? '🧑' : (type === 'admin' ? '👨‍💼' : '🤖');
+    row.innerHTML = `
+        <div class="bubble-icon">${icon}</div>
+        <div class="bubble">${esc(text)}</div>`;
+    area.appendChild(row);
+    area.scrollTop = area.scrollHeight;
+}
+
+function setAdminLiveBanner(live) {
+    adminLive = live;
+    document.getElementById('liveBanner').classList.toggle('show', live);
+}
+
+function renderInboxMessages(convo) {
+    const msgs = convo.messages || [];
+    setAdminLiveBanner(!!convo.adminLive);
+
+    for (const m of msgs) {
+        if (renderedMsgIds.has(m.id)) continue;
+        renderedMsgIds.add(m.id);
+        if (m.from === 'user') continue; // already shown when sent
+        if (m.from === 'admin') addBubble(m.text, 'admin');
+        else if (m.from === 'ai') addBubble(m.text, 'ai');
+    }
+
+    if (convo.unreadUser > 0) {
+        ChatService.clearUnreadForUser(currentUser);
+    }
+}
+
+function showWelcomeMessage() {
+    const owner = cfg().ownerName || 'Shayan';
+    addBubble(
+        `Assalam o Alaikum! 👋\n\nMain ${owner} ki team se hoon. Jab tak ${owner} connect nahi hote, main aap se baat karunga.\n\nKuch bhi likhein — main jawab dunga!`,
+        'ai'
+    );
+}
+
+function showTyping() {
+    const area = document.getElementById('chatArea');
+    const el = document.createElement('div');
+    el.className = 'typing';
+    el.id = 'typingIndicator';
+    el.innerHTML = '<span></span><span></span><span></span>';
+    area.appendChild(el);
+    area.scrollTop = area.scrollHeight;
+}
+
+function hideTyping() { document.getElementById('typingIndicator')?.remove(); }
+
+async function handleSignup(e) {
+    e.preventDefault();
+    showLoginError('');
+    const btn = document.getElementById('signupBtn');
+    btn.disabled = true;
+    try {
+        currentUser = await AuthService.signUp(
+            document.getElementById('signupName').value,
+            document.getElementById('signupEmail').value,
+            document.getElementById('signupPassword').value
+        );
+        if (currentUser.role === 'admin') {
+            window.location.href = 'admin.html';
+            return;
+        }
+        enterChatApp(true);
+    } catch (err) {
+        showLoginError(err.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    showLoginError('');
+    const btn = document.getElementById('loginBtn');
+    btn.disabled = true;
+    try {
+        currentUser = await AuthService.signIn(
+            document.getElementById('loginEmail').value,
+            document.getElementById('loginPassword').value
+        );
+        if (currentUser.role === 'admin') {
+            window.location.href = 'admin.html';
+            return;
+        }
+        enterChatApp(false);
+    } catch (err) {
+        showLoginError(err.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function enterChatApp(isNew) {
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('chatApp').classList.add('visible');
+    document.getElementById('userGreeting').textContent = currentUser.name + ' — Connected';
+    document.getElementById('chatArea').innerHTML = '';
+    chatHistory = [];
+    renderedMsgIds = new Set();
+    restoreChat();
+    if (!chatHistory.length || isNew) showWelcomeMessage();
+
+    ChatService.startPolling(currentUser, (convo) => {
+        renderInboxMessages(convo);
+    });
+
+    document.getElementById('chatInput').focus();
+}
+
+async function logout() {
+    if (!confirm('Logout karna hai?')) return;
+    ChatService.stopPolling();
+    await AuthService.signOut();
+    currentUser = null;
+    chatHistory = [];
+    document.getElementById('chatApp').classList.remove('visible');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('chatArea').innerHTML = '';
+    showError('');
+    switchAuthTab('login');
+}
+
+async function callGroq(messages) {
+    const key = cfg().groqApiKey || '';
+    if (!key) throw new Error('AI setup missing.');
+
+    let lastError = null;
+    for (const model of GROQ_MODELS) {
+        try {
+            const res = await fetch(GROQ_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+                body: JSON.stringify({
+                    model, max_tokens: 900, temperature: 0.7,
+                    messages: [{ role: 'system', content: systemPrompt() }, ...messages]
+                })
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                const errMsg = err.error?.message || '';
+                if (errMsg.includes('rate_limit') || res.status === 429) { lastError = new Error(errMsg); continue; }
+                throw new Error(errMsg || 'API Error');
+            }
+            const data = await res.json();
+            return data.choices[0].message.content;
+        } catch (e) {
+            lastError = e;
+            if (!String(e.message).includes('rate_limit')) throw e;
+        }
+    }
+    throw lastError || new Error('AI busy hai, thori der baad try karein.');
+}
+
+async function sendMessage() {
+    if (!currentUser) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text || isLoading) return;
+
+    showError('');
+    isLoading = true;
+    document.getElementById('sendBtn').disabled = true;
+    input.value = '';
+    input.style.height = 'auto';
+
+    addBubble(text, 'user');
+    chatHistory.push({ role: 'user', content: text });
+
+    const userMsg = await ChatService.addMessage(currentUser, 'user', text);
+    renderedMsgIds.add(userMsg.id);
+
+    const convo = await ChatService.getConvo(currentUser);
+
+    // Admin live — AI band, sirf admin jawab dega
+    if (convo.adminLive) {
+        isLoading = false;
+        document.getElementById('sendBtn').disabled = false;
+        input.focus();
+        localStorage.setItem(AuthService.historyKey(currentUser), JSON.stringify(chatHistory));
+        await AuthService.incrementMessageCount(currentUser);
+        return;
+    }
+
+    // Admin abhi connect nahi — AI baat karta rahe
+    showTyping();
+    try {
+        const reply = await callGroq(chatHistory);
+        hideTyping();
+        chatHistory.push({ role: 'assistant', content: reply });
+        addBubble(reply, 'ai');
+        const aiMsg = await ChatService.addMessage(currentUser, 'ai', reply);
+        renderedMsgIds.add(aiMsg.id);
+        localStorage.setItem(AuthService.historyKey(currentUser), JSON.stringify(chatHistory));
+        await AuthService.incrementMessageCount(currentUser);
+    } catch (e) {
+        hideTyping();
+        chatHistory.pop();
+        showError(e.message || 'Kuch galat ho gaya.');
+    } finally {
+        isLoading = false;
+        document.getElementById('sendBtn').disabled = false;
+        input.focus();
+    }
+}
+
+function clearChat() {
+    if (!currentUser || !confirm('Nayi chat shuru karein?')) return;
+    chatHistory = [];
+    localStorage.removeItem(AuthService.historyKey(currentUser));
+    document.getElementById('chatArea').innerHTML = '';
+    showWelcomeMessage();
+    showError('');
+}
+
+function restoreChat() {
+    if (!currentUser) return;
+    try {
+        const saved = localStorage.getItem(AuthService.historyKey(currentUser));
+        if (!saved) return;
+        const history = JSON.parse(saved);
+        if (!Array.isArray(history) || !history.length) return;
+        chatHistory = history;
+        for (const msg of history) {
+            addBubble(msg.content, msg.role === 'user' ? 'user' : 'ai');
+        }
+    } catch (_) {}
+}
+
+window.onload = async () => {
+    document.getElementById('brandTitle').textContent = cfg().brandName || 'AI Connect';
+    document.getElementById('chatBrand').textContent = cfg().brandName || 'AI Connect';
+    document.getElementById('brandTagline').textContent = cfg().tagline || '';
+
+    document.getElementById('tabLogin').onclick = () => switchAuthTab('login');
+    document.getElementById('tabSignup').onclick = () => switchAuthTab('signup');
+
+    const input = document.getElementById('chatInput');
+    input.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    });
+
+    await AuthService.initApp();
+    currentUser = await AuthService.waitForAuth();
+    if (currentUser) {
+        if (currentUser.role === 'admin') {
+            window.location.href = 'admin.html';
+            return;
+        }
+        enterChatApp(false);
+    }
+};
+</script>
+</body>
+</html>

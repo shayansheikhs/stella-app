@@ -1,0 +1,64 @@
+========================================
+STELLA APP - HOSTING GUIDE (Roman Urdu)
+========================================
+
+NETLIFY MAT USE KARO (har dafa naya URL + password)
+
+========================================
+OPTION 1 - SAB SE AASAN (Apne PC par)
+========================================
+
+1. Folder kholo: ai-connect-app
+2. Double-click: START-APP.bat
+3. Browser khul jayega - app chal rahi hai!
+
+Links (hamesha same):
+  Chat:     http://localhost:8080/
+  Teaching: http://localhost:8080/teaching/
+  Admin:    http://localhost:8080/admin.html
+
+Phone se (same WiFi):
+  Double-click: PHONE-SE-USE-KARO.bat
+  Jo link dikhe woh phone mein kholo
+
+Admin login:
+  Email: admin@aiconnect.com
+  Password: StellaAdmin2026
+
+========================================
+OPTION 2 - FREE PERMANENT LINK (GitHub)
+========================================
+
+Ek dafa setup = hamesha same link, upload nahi karna
+
+1. github.com par free account banao
+2. New repository banao: stella-app
+3. Upload karo poora ai-connect-app folder
+4. Settings > Pages > Source: main branch
+5. Link milega: https://YOUR-NAME.github.io/stella-app/
+
+Teaching: .../stella-app/teaching/
+Admin:    .../stella-app/admin.html
+
+Yeh link KABHI change nahi hota!
+
+========================================
+OPTION 3 - APK (Android phone ke liye)
+========================================
+
+Flutter app already bani hai:
+  d:\shayan\learning\stella_flutter\build\app\outputs\flutter-apk\app-release.apk
+
+Phone mein copy karo + install karo
+Internet ki zaroorat sirf AI chat ke liye
+
+========================================
+KYA GHALAT THA NETLIFY PAR?
+========================================
+
+- Har anonymous upload = NAYA URL
+- Password har baar
+- teaching folder miss ho jata tha
+- Redirect loop (ab fix ho gaya)
+
+========================================

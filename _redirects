@@ -1,0 +1,7 @@
+/admin           /admin.html           200
+/admin/          /admin.html           200
+/teaching        /teaching/index.html  200
+/teaching/       /teaching/index.html  200
+/teaching.html   /teaching/index.html  301
+/teachig         /teaching/index.html  301
+/teachig/        /teaching/index.html  301
