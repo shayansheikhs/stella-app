@@ -88,6 +88,13 @@
             text-align: center; margin-top: 18px; font-size: 0.78rem; color: var(--muted);
         }
         .login-footer a { color: #C4B5FD; text-decoration: none; }
+        .login-error {
+            color: #FCA5A5; font-size: 0.85rem; margin-bottom: 12px;
+            padding: 10px 12px; border-radius: 8px;
+            background: rgba(239,68,68,0.12); border: 1px solid #EF4444;
+            display: none;
+        }
+        .login-error.show { display: block; }
         .guest-btn {
             width: 100%; padding: 14px; border: none; border-radius: 12px;
             background: linear-gradient(135deg, #7C3AED, var(--primary));
@@ -231,22 +238,21 @@
             <p id="brandTagline">Login karein, chat shuru karein</p>
         </div>
         <div class="help-box" id="guestHelp">
-            ✅ Koi account nahi chahiye — seedha chat shuru karein.<br>
-            Admin ke liye isi browser mein <a href="admin.html">admin tab</a> kholo.
+            Apna naam likhein aur chat shuru karein — koi account nahi chahiye.
         </div>
+        <div class="login-error" id="loginError"></div>
         <div id="guestSection">
             <div class="guest-name-row">
-                <input type="text" id="guestName" class="field" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:0.92rem" placeholder="Aap ka naam (optional)" autocomplete="name">
+                <input type="text" id="guestName" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px 14px;border-radius:10px;font-size:0.92rem;width:100%" placeholder="Aap ka naam" autocomplete="name">
             </div>
-            <button class="guest-btn" type="button" id="guestBtn" onclick="startGuestChat()">💬 Chat shuru karo →</button>
+            <button class="guest-btn" type="button" id="guestBtn">💬 Chat shuru karo →</button>
         </div>
-        <div class="divider" id="loginDivider">— ya email se login —</div>
+        <div class="divider" id="loginDivider">— ya email se account banao —</div>
         <div class="auth-extra" id="authExtra">
         <div class="auth-tabs">
             <button class="auth-tab active" id="tabLogin" type="button">Login</button>
             <button class="auth-tab" id="tabSignup" type="button">Naya Account</button>
         </div>
-        <div class="login-error" id="loginError"></div>
         <form class="auth-form active" id="formLogin" onsubmit="handleLogin(event)">
             <div class="field">
                 <label>Email</label>
@@ -273,9 +279,6 @@
             </div>
             <button class="auth-btn" type="submit" id="signupBtn">Account banayein →</button>
         </form>
-        </div>
-        <div class="login-footer">
-            Admin ho? <a href="admin.html">🛡️ Admin Dashboard yahan kholein</a>
         </div>
     </div>
 
@@ -423,17 +426,24 @@ function hideTyping() { document.getElementById('typingIndicator')?.remove(); }
 async function startGuestChat() {
     showLoginError('');
     const btn = document.getElementById('guestBtn');
+    if (!btn) return;
     btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = 'Loading...';
     try {
+        await AuthService.initApp();
         const name = document.getElementById('guestName')?.value?.trim();
         currentUser = await AuthService.createGuest(name);
         enterChatApp(true);
     } catch (err) {
-        showLoginError(err.message);
+        console.error('startGuestChat:', err);
+        showLoginError(err.message || 'Chat shuru nahi ho saki. Dobara try karein.');
     } finally {
         btn.disabled = false;
+        btn.textContent = oldText;
     }
 }
+window.startGuestChat = startGuestChat;
 
 async function handleSignup(e) {
     e.preventDefault();
@@ -616,13 +626,30 @@ function restoreChat() {
     } catch (_) {}
 }
 
+function setupAuthUI(guestMode) {
+    const guestOn = guestMode !== false;
+    document.getElementById('guestSection').style.display = guestOn ? 'block' : 'none';
+    document.getElementById('guestHelp').style.display = guestOn ? 'block' : 'none';
+    document.getElementById('loginDivider').style.display = guestOn ? 'block' : 'none';
+    document.getElementById('authExtra').classList.toggle('show', !guestOn);
+    if (guestOn) {
+        document.getElementById('authExtra').classList.remove('show');
+    } else {
+        document.getElementById('authExtra').classList.add('show');
+    }
+}
+
 window.onload = async () => {
     document.getElementById('brandTitle').textContent = cfg().brandName || 'AI Connect';
     document.getElementById('chatBrand').textContent = cfg().brandName || 'AI Connect';
     document.getElementById('brandTagline').textContent = cfg().tagline || '';
 
-    document.getElementById('tabLogin').onclick = () => switchAuthTab('login');
-    document.getElementById('tabSignup').onclick = () => switchAuthTab('signup');
+    const guestMode = cfg().guestMode !== false;
+    setupAuthUI(guestMode);
+
+    document.getElementById('guestBtn')?.addEventListener('click', startGuestChat);
+    document.getElementById('tabLogin')?.addEventListener('click', () => switchAuthTab('login'));
+    document.getElementById('tabSignup')?.addEventListener('click', () => switchAuthTab('signup'));
 
     const input = document.getElementById('chatInput');
     input.addEventListener('keydown', e => {
@@ -633,34 +660,20 @@ window.onload = async () => {
         input.style.height = Math.min(input.scrollHeight, 120) + 'px';
     });
 
-    await AuthService.initApp();
-
-    const guestMode = cfg().guestMode !== false;
-    if (guestMode) {
-        document.getElementById('guestSection').style.display = 'block';
-        document.getElementById('guestHelp').style.display = 'block';
-        document.getElementById('loginDivider').style.display = 'none';
-        document.getElementById('authExtra').classList.remove('show');
-    } else {
-        document.getElementById('guestSection').style.display = 'none';
-        document.getElementById('guestHelp').style.display = 'none';
-        document.getElementById('loginDivider').style.display = 'block';
-        document.getElementById('authExtra').classList.add('show');
-    }
-
-    currentUser = await AuthService.waitForAuth();
-    if (currentUser) {
-        if (currentUser.role === 'admin') {
-            window.location.href = 'admin.html';
+    try {
+        await AuthService.initApp();
+        currentUser = await AuthService.waitForAuth();
+        if (currentUser) {
+            if (currentUser.role === 'admin') {
+                window.location.href = 'admin.html';
+                return;
+            }
+            enterChatApp(false);
             return;
         }
-        enterChatApp(false);
-        return;
-    }
-
-    if (guestMode) {
-        currentUser = await AuthService.createGuest(cfg().defaultGuestName || 'Guest');
-        enterChatApp(true);
+    } catch (err) {
+        console.error('init:', err);
+        showLoginError('Connection error — phir se try karein.');
     }
 };
 </script>

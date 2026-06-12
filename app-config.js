@@ -3,10 +3,11 @@
 window.APP_CONFIG = {
   brandName: 'AI Connect',
   ownerName: 'Shayan',
-  tagline: 'Login karein — phone aur laptop dono connect honge',
+  tagline: 'Apna naam likhein, chat shuru karein',
 
-  // Firebase ON — guest mode band (real account chahiye sync ke liye)
-  guestMode: false,
+  // Seedha chat — bina account ke (Firebase par save hoga)
+  guestMode: true,
+  autoGuest: false,
   defaultGuestName: 'Guest',
 
   // Deploy par auto-lagti hai (GitHub secret se)

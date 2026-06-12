@@ -174,6 +174,18 @@
     saveLocalUsers(users);
     const session = { uid, name: guestName, email, role: 'user', isGuest: true };
     saveLocalSession(session);
+
+    if (isFirebaseReady() && firestore) {
+      try {
+        await firestore.collection('users').doc(uid).set({
+          uid, name: guestName, email,
+          role: 'user', messageCount: 0,
+          createdAt: Date.now(), lastLogin: Date.now(),
+          isGuest: true
+        });
+      } catch (_) {}
+    }
+
     return session;
   }
 
