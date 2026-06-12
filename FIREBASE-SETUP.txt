@@ -1,0 +1,49 @@
+========================================
+FIREBASE SETUP (stella-chat-6e272)
+========================================
+
+App-config mein keys lag chuki hain. Ab Firebase Console mein yeh 2 cheezein karo:
+
+STEP 1 — Email/Password Auth ON
+-------------------------------
+1. https://console.firebase.google.com → project: stella-chat-6e272
+2. Build → Authentication → Sign-in method
+3. Email/Password → Enable → Save
+
+STEP 2 — Firestore Database banao
+---------------------------------
+1. Build → Firestore Database → Create database
+2. Start in test mode (testing ke liye)
+3. Region: closest (asia-south1 ya europe-west)
+
+STEP 3 — Firestore Rules (zaroori)
+----------------------------------
+Firestore → Rules tab → yeh paste karo → Publish:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}
+
+⚠️ Baad mein production rules tight karna — abhi testing ke liye open hai.
+
+STEP 4 — Test
+-------------
+Phone:  User chat → Naya Account banao (email + password)
+Laptop: Admin dashboard → user dikhega → Chat kholo
+
+Admin login (local — pehle jaisa):
+  Email: admin@aiconnect.com
+  Password: StellaAdmin2026
+
+========================================
+COLLECTIONS (auto ban jati hain)
+========================================
+- users          → registered users
+- conversations  → chat messages
+
+GitHub par push karo taake live site par bhi Firebase chale.

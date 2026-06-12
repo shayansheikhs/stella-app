@@ -200,7 +200,7 @@
             <strong>Admin Login (copy karein):</strong><br>
             Email: <strong>admin@aiconnect.com</strong><br>
             Password: <strong>StellaAdmin2026</strong><br><br>
-            ⚠️ Agar error aaye to pehle <a href="index.html" style="color:#C4B5FD">index.html</a> par jaa kar Naya Account banayein, phir yahan login karein.
+            📱 <strong>Local mode:</strong> User chat + Admin dono isi browser ke 2 tabs mein kholo — koi cloud account nahi.
         </div>
         <div class="error" id="loginError"></div>
         <form onsubmit="adminLogin(event)">
@@ -299,10 +299,13 @@
 
 <script src="app-config.js"></script>
 <script src="app-config.local.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-sync.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="auth.js"></script>
+<script src="firebase-sync.js"></script>
 <script src="chat-service.js"></script>
 <script>
 function cfg() { return window.APP_CONFIG || {}; }
@@ -379,31 +382,37 @@ async function adminLogout() {
 }
 
 async function refreshUsers() {
-    const users = await ChatService.listUsersForAdmin();
-    const regular = users.filter(u => (u.role || 'user') !== 'admin');
+    try {
+        const users = await ChatService.listUsersForAdmin();
+        const regular = users.filter(u => (u.role || 'user') !== 'admin');
 
-    let today = 0, msgs = 0;
-    regular.forEach(u => {
-        if (isToday(u.lastLogin)) today++;
-        msgs += u.messageCount || 0;
-    });
+        let today = 0, msgs = 0;
+        regular.forEach(u => {
+            if (isToday(u.lastLogin)) today++;
+            msgs += u.messageCount || 0;
+        });
 
-    document.getElementById('statTotal').textContent = regular.length;
-    document.getElementById('statToday').textContent = today;
-    document.getElementById('statMsgs').textContent = msgs;
+        document.getElementById('statTotal').textContent = regular.length;
+        document.getElementById('statToday').textContent = today;
+        document.getElementById('statMsgs').textContent = msgs;
 
-    allUsersList = regular;
-    renderChatCards(regular);
+        allUsersList = regular;
+        renderChatCards(regular);
 
-    const tbody = document.getElementById('userTable');
-    if (!regular.length) {
-        tbody.innerHTML = '<tr><td colspan="7" style="color:var(--muted);padding:20px">Abhi koi user nahi. User link share karein ya same browser mein user tab kholo.</td></tr>';
-        return;
-    }
+        const tbody = document.getElementById('userTable');
+        if (!regular.length) {
+            const fb = cfg().firebase || {};
+            const hint = fb.enabled
+                ? 'Phone se user link kholo → Naya Account (email+password) banao → message bhejo. Firebase Console mein Firestore + Auth ON hona chahiye.'
+                : 'User link share karein — phone se account banao, yahan dikhega.';
+            tbody.innerHTML = `<tr><td colspan="7" style="color:var(--muted);padding:20px">${hint}</td></tr>`;
+            updateCloudStatus(regular.length);
+            return;
+        }
 
-    tbody.innerHTML = regular.map((u, i) => {
-        const unread = u.unreadAdmin || getUnreadForUser({ email: u.email });
-        return `
+        tbody.innerHTML = regular.map((u, i) => {
+            const unread = u.unreadAdmin || getUnreadForUser({ email: u.email });
+            return `
         <tr>
             <td>${esc(u.name || '—')}</td>
             <td>${esc(u.email || '—')}</td>
@@ -417,7 +426,29 @@ async function refreshUsers() {
                 </button>
             </td>
         </tr>`;
-    }).join('');
+        }).join('');
+        updateCloudStatus(regular.length);
+    } catch (err) {
+        console.error('refreshUsers:', err);
+        document.getElementById('cloudNotice').textContent =
+            '❌ Firebase error: ' + (err.message || err.code || 'Unknown') +
+            ' — Firestore rules + Email Auth check karein (FIREBASE-SETUP.txt).';
+    }
+}
+
+function updateCloudStatus(userCount) {
+    const cloud = AuthService.usesCloud();
+    const fb = (cfg().firebase || {}).enabled;
+    if (!cloud && fb) {
+        document.getElementById('cloudNotice').textContent =
+            '⚠️ Firebase connect nahi hua — page refresh karein ya console error dekhein.';
+        return;
+    }
+    document.getElementById('cloudNotice').textContent = cloud
+        ? (fb
+            ? `✅ Firebase ON — ${userCount} user(s). Phone + laptop dono connect honge.`
+            : `✅ Supabase ON — ${userCount} user(s).`)
+        : '📱 Local mode — same browser ke 2 tabs mein test karein.';
 }
 
 function openUserChatByIndex(i) {
@@ -432,10 +463,10 @@ function renderChatCards(users) {
         box.innerHTML = `<div style="color:var(--muted);font-size:0.85rem;padding:14px;line-height:1.6">
             <strong>Abhi koi user nahi dikha.</strong><br><br>
             ✅ <strong>Test kaise karein:</strong><br>
-            1. Naya tab kholo → User chat link<br>
-            2. Account banao + message bhejo<br>
-            3. Is admin tab par <strong>Refresh</strong> dabao<br>
-            4. User ka card aayega → <strong>Chat kholo</strong> dabao
+            1. Phone se user link kholo → account banao + message bhejo<br>
+            2. Yahan admin dashboard refresh hoga (3 sec)<br>
+            3. User ka card aayega → <strong>Chat kholo</strong> dabao<br>
+            <em>Firebase ON hona chahiye — FIREBASE-SETUP.txt dekho</em>
         </div>`;
         return;
     }
@@ -556,11 +587,6 @@ async function showDashboard() {
     document.getElementById('loginView').classList.add('hidden');
     document.getElementById('dashView').classList.remove('hidden');
     document.getElementById('adminWelcome').textContent = 'Logged in as ' + (user?.name || 'Admin');
-
-    const cloud = AuthService.usesCloud();
-    document.getElementById('cloudNotice').textContent = cloud
-        ? '✅ Firebase ON — sab users cloud par save ho rahe hain (live mode).'
-        : '⚠️ Same browser test: User aur Admin dono isi browser ke 2 tabs mein kholo. Phone+laptop ke liye Firebase chahiye.';
 
     const base = window.location.origin + window.location.pathname.replace('admin.html', '');
     document.getElementById('userLink').href = base + 'index.html';

@@ -3,7 +3,11 @@
 window.APP_CONFIG = {
   brandName: 'AI Connect',
   ownerName: 'Shayan',
-  tagline: 'Login karein, seedhi baat shuru karein',
+  tagline: 'Login karein — phone aur laptop dono connect honge',
+
+  // Firebase ON — guest mode band (real account chahiye sync ke liye)
+  guestMode: false,
+  defaultGuestName: 'Guest',
 
   // Deploy par auto-lagti hai (GitHub secret se)
   groqApiKey: '__GROQ_API_KEY__',
@@ -22,12 +26,20 @@ window.APP_CONFIG = {
   localAdminPassword: 'StellaAdmin2026',
 
   firebase: {
+    enabled: true,
+    apiKey: 'AIzaSyDakoUDw3uHevvGbWM6tTHAI3Y4BFl8fsk',
+    authDomain: 'stella-chat-6e272.firebaseapp.com',
+    databaseURL: 'https://stella-chat-6e272-default-rtdb.firebaseio.com',
+    projectId: 'stella-chat-6e272',
+    storageBucket: 'stella-chat-6e272.firebasestorage.app',
+    messagingSenderId: '968394329918',
+    appId: '1:968394329918:web:20afb422a62c96d736a66f'
+  },
+
+  // ☁️ LIVE SYNC — user phone + admin laptop (Firebase ki jagah)
+  supabase: {
     enabled: false,
-    apiKey: '',
-    authDomain: '',
-    projectId: '',
-    storageBucket: '',
-    messagingSenderId: '',
-    appId: ''
+    url: '',        // https://xxxxx.supabase.co
+    anonKey: ''     // anon public key
   }
 };

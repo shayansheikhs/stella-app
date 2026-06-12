@@ -1,0 +1,63 @@
+========================================
+SUPABASE SETUP (Firebase ki jagah - FREE)
+========================================
+
+Yeh karo to user phone se, admin laptop se — DONO connect honge!
+
+STEP 1 — Account (free)
+-----------------------
+1. https://supabase.com par jao
+2. Sign up (Google se bhi ho sakta hai)
+3. "New Project" banao
+   - Name: stella-app
+   - Password: koi strong password (yaad rakhna)
+   - Region: Singapore ya closest
+4. 2 minute wait — project ready
+
+STEP 2 — Database tables
+------------------------
+1. Left menu → SQL Editor
+2. "New query"
+3. File kholo: supabase-setup.sql (is folder mein)
+4. Poora copy paste karo → RUN
+5. Left menu → Database → Replication
+   → "conversations" table ON karo (realtime messages ke liye)
+
+STEP 3 — API keys copy karo
+---------------------------
+1. Left menu → Project Settings → API
+2. Copy karo:
+   - Project URL  (jaise https://xxxxx.supabase.co)
+   - anon public key  (lamba key)
+
+STEP 4 — app-config.js mein lagao
+---------------------------------
+supabase section mein:
+
+  supabase: {
+    enabled: true,
+    url: 'https://APNA-PROJECT.supabase.co',
+    anonKey: 'APNA-ANON-KEY'
+  }
+
+STEP 5 — GitHub par push karo (ya local test)
+---------------------------------------------
+Push ke baad 2 min wait — site update ho jayegi.
+
+========================================
+TEST
+========================================
+Phone:  https://shayansheikhs.github.io/stella-app/
+Laptop: https://shayansheikhs.github.io/stella-app/admin.html
+
+Phone se account banao + message bhejo
+Laptop admin mein user dikhega → Chat kholo → jawab do
+Phone par jawab aayega!
+
+========================================
+KYA FARQ PARA?
+========================================
+Pehle: sirf same browser (localStorage)
+Ab:    Supabase cloud — kahi se bhi connect
+
+Firebase nahi chahiye — Supabase free hai!

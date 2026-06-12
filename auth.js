@@ -19,6 +19,15 @@
     return f.enabled && f.apiKey && f.projectId && typeof firebase !== 'undefined';
   }
 
+  function useSupabase() {
+    return typeof SupabaseSync !== 'undefined' && SupabaseSync.isReady();
+  }
+
+  async function initSupabase() {
+    if (typeof SupabaseSync === 'undefined') return false;
+    return SupabaseSync.init();
+  }
+
   async function initFirebase() {
     const f = cfg().firebase;
     if (!f?.enabled || !f.apiKey) return false;
@@ -51,23 +60,38 @@
     const email = (cfg().defaultAdminEmail || 'admin@aiconnect.com').toLowerCase();
     const password = cfg().defaultAdminPassword || cfg().localAdminPassword || 'StellaAdmin2026';
     const users = getLocalUsers();
-    if (users.some(u => u.email === email)) return;
-
     const passwordHash = await hashPassword(password);
-    users.push({
-      uid: 'admin_default',
-      name: 'Admin',
-      email,
-      passwordHash,
-      role: 'admin',
-      createdAt: Date.now(),
-      lastLogin: Date.now(),
-      messageCount: 0
-    });
-    saveLocalUsers(users);
+
+    if (!users.some(u => u.email === email)) {
+      users.push({
+        uid: 'admin_default',
+        name: 'Admin',
+        email,
+        passwordHash,
+        role: 'admin',
+        createdAt: Date.now(),
+        lastLogin: Date.now(),
+        messageCount: 0
+      });
+      saveLocalUsers(users);
+    }
+
+    if (useSupabase()) {
+      await SupabaseSync.upsertUser({
+        uid: 'admin_default',
+        name: 'Admin',
+        email,
+        passwordHash,
+        role: 'admin',
+        createdAt: Date.now(),
+        lastLogin: Date.now(),
+        messageCount: 0
+      });
+    }
   }
 
   async function initApp() {
+    await initSupabase();
     await ensureDefaultAdmin();
     return initFirebase();
   }
@@ -88,7 +112,9 @@
     localStorage.removeItem(SESSION_KEY);
   }
 
-  function isAdminEmail(email) {
+  function getFirestore() {
+    return firestore;
+  }
     const list = (cfg().adminEmails || []).map(e => e.toLowerCase());
     return list.includes((email || '').toLowerCase());
   }
@@ -128,6 +154,29 @@
     return { uid: user.uid, name: user.name, email: user.email, role: user.role };
   }
 
+  async function createGuest(name) {
+    const guestName = (name || cfg().defaultGuestName || 'Guest').trim() || 'Guest';
+    const uid = 'guest_' + Date.now();
+    const email = uid + '@local.guest';
+    const user = {
+      uid,
+      name: guestName,
+      email,
+      passwordHash: '',
+      role: 'user',
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+      messageCount: 0,
+      isGuest: true
+    };
+    const users = getLocalUsers();
+    users.push(user);
+    saveLocalUsers(users);
+    const session = { uid, name: guestName, email, role: 'user', isGuest: true };
+    saveLocalSession(session);
+    return session;
+  }
+
   async function localSignIn(email, password) {
     const normalized = email.trim().toLowerCase();
     const users = getLocalUsers();
@@ -143,8 +192,57 @@
     return session;
   }
 
+  async function cloudSignUp(name, email, password) {
+    const normalized = email.trim().toLowerCase();
+    const existing = await SupabaseSync.findUserByEmail(normalized);
+    if (existing) throw new Error('Yeh email pehle se registered hai. Login karein.');
+
+    const passwordHash = await hashPassword(password);
+    const user = {
+      uid: 'sb_' + Date.now(),
+      name: name.trim(),
+      email: normalized,
+      passwordHash,
+      role: isAdminEmail(normalized) ? 'admin' : 'user',
+      createdAt: Date.now(),
+      lastLogin: Date.now(),
+      messageCount: 0
+    };
+    await SupabaseSync.upsertUser(user);
+    saveLocalSession({ uid: user.uid, name: user.name, email: user.email, role: user.role });
+    return { uid: user.uid, name: user.name, email: user.email, role: user.role };
+  }
+
+  async function cloudSignIn(email, password) {
+    const normalized = email.trim().toLowerCase();
+    const found = await SupabaseSync.findUserByEmail(normalized);
+    if (!found) throw new Error('Account nahi mila. Pehle naya account banayein.');
+    const passwordHash = await hashPassword(password);
+    if (passwordHash !== found.password_hash) throw new Error('Galat password.');
+
+    const session = {
+      uid: found.id,
+      name: found.name,
+      email: found.email,
+      role: found.role || 'user'
+    };
+    await SupabaseSync.upsertUser({
+      ...session,
+      passwordHash: found.password_hash,
+      lastLogin: Date.now(),
+      messageCount: found.message_count || 0,
+      createdAt: found.created_at
+    });
+    saveLocalSession(session);
+    return session;
+  }
+
   async function signUp(name, email, password) {
     if (password.length < 6) throw new Error('Password kam az kam 6 letters ka ho.');
+
+    if (await initSupabase() && useSupabase()) {
+      return cloudSignUp(name, email, password);
+    }
 
     if (await initFirebase() && isFirebaseReady()) {
       const cred = await firebaseAuth.createUserWithEmailAndPassword(email.trim(), password);
@@ -166,6 +264,10 @@
   }
 
   async function signIn(email, password) {
+    if (await initSupabase() && useSupabase()) {
+      return cloudSignIn(email, password);
+    }
+
     if (await initFirebase() && isFirebaseReady()) {
       const cred = await firebaseAuth.signInWithEmailAndPassword(email.trim(), password);
       await upsertFirestoreUser(cred.user, { name: cred.user.displayName || 'User' });
@@ -244,9 +346,26 @@
   }
 
   async function listAllUsers() {
+    if (useSupabase()) {
+      return SupabaseSync.listUsers().map(u => ({
+        id: u.uid,
+        uid: u.uid,
+        name: u.name,
+        email: u.email,
+        role: u.role || 'user',
+        createdAt: u.createdAt,
+        lastLogin: u.lastLogin,
+        messageCount: u.messageCount || 0
+      }));
+    }
     if (firestore && isFirebaseReady()) {
-      const snap = await firestore.collection('users').orderBy('createdAt', 'desc').get();
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      try {
+        const snap = await firestore.collection('users').orderBy('createdAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() }));
+      } catch (_) {
+        const snap = await firestore.collection('users').get();
+        return snap.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() }));
+      }
     }
     return getLocalUsers().map(u => ({
       id: u.uid,
@@ -262,6 +381,10 @@
 
   async function incrementMessageCount(user) {
     if (!user?.uid) return;
+    if (useSupabase() && user.email) {
+      await SupabaseSync.incrementUserMessages(user.email);
+      return;
+    }
     if (firestore && isFirebaseReady() && !user.uid.startsWith('local_')) {
       await firestore.collection('users').doc(user.uid).set({
         messageCount: firebase.firestore.FieldValue.increment(1),
@@ -283,15 +406,17 @@
   }
 
   function usesCloud() {
-    return isFirebaseReady();
+    return useSupabase() || isFirebaseReady();
   }
 
   window.AuthService = {
     initFirebase,
     initApp,
     isFirebaseReady,
+    getFirestore,
     signUp,
     signIn,
+    createGuest,
     signOut,
     getCurrentUser,
     waitForAuth,

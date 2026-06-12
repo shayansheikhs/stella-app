@@ -1,22 +1,18 @@
-// Shared inbox — admin aur user dono yahan se baat karte hain
+// Shared inbox — local + Supabase cloud sync
 (function () {
   const INBOX_KEY = 'ai_connect_inbox_v1';
-  let firestore = null;
   let pollTimer = null;
+  let unsubRealtime = null;
 
   function cfg() { return window.APP_CONFIG || {}; }
 
-  function useCloud() {
-    return typeof AuthService !== 'undefined' && AuthService.isFirebaseReady();
+  function useFirebase() {
+    return typeof FirebaseSync !== 'undefined' && FirebaseSync.isReady();
   }
 
-  function getFirestore() {
-    if (!useCloud() || typeof firebase === 'undefined') return null;
-    try {
-      return firebase.app().firestore();
-    } catch {
-      return null;
-    }
+  function useCloud() {
+    return useFirebase() ||
+      (typeof SupabaseSync !== 'undefined' && SupabaseSync.isReady());
   }
 
   function convoId(user) {
@@ -55,34 +51,36 @@
   }
 
   async function getConvo(user) {
-    const fs = getFirestore();
     const id = convoId(user);
-    if (fs) {
-      const doc = await fs.collection('conversations').doc(id).get();
-      if (doc.exists) return { id, ...doc.data() };
-      const data = {
-        userId: user.uid,
-        userName: user.name,
-        userEmail: user.email,
-        adminLive: false,
-        messages: [],
-        unreadAdmin: 0,
-        unreadUser: 0,
-        lastUpdate: Date.now()
-      };
-      await fs.collection('conversations').doc(id).set(data);
-      return { id, ...data };
+
+    if (useCloud()) {
+      const sync = useFirebase() ? FirebaseSync : SupabaseSync;
+      let convo = await sync.getConvo(id);
+      if (!convo) {
+        convo = {
+          userId: user.uid,
+          userName: user.name,
+          userEmail: user.email,
+          adminLive: false,
+          messages: [],
+          unreadAdmin: 0,
+          unreadUser: 0,
+          lastUpdate: Date.now()
+        };
+        await sync.saveConvo(id, convo);
+      }
+      return { id, ...convo };
     }
+
     ensureLocalConvo(user);
     return { id, ...readLocalInbox().conversations[id] };
   }
 
   async function saveConvo(id, data) {
-    const fs = getFirestore();
     data.lastUpdate = Date.now();
-    if (fs) {
-      await fs.collection('conversations').doc(id).set(data, { merge: true });
-      return;
+    if (useCloud()) {
+      const sync = useFirebase() ? FirebaseSync : SupabaseSync;
+      await sync.saveConvo(id, data);
     }
     const inbox = readLocalInbox();
     inbox.conversations[id] = data;
@@ -105,6 +103,9 @@
     convo.userName = user.name;
     convo.userEmail = user.email;
     await saveConvo(id, convo);
+    if (from === 'user' && useCloud() && !useFirebase()) {
+      await SupabaseSync.incrementUserMessages(user.email);
+    }
     return msg;
   }
 
@@ -131,21 +132,20 @@
   }
 
   async function listConversations() {
-    const fs = getFirestore();
-    if (fs) {
-      const snap = await fs.collection('conversations').orderBy('lastUpdate', 'desc').get();
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (useCloud()) {
+      const sync = useFirebase() ? FirebaseSync : SupabaseSync;
+      const convos = await sync.listConvos();
+      return convos.map(c => ({ id: c.id, ...c }));
     }
     const inbox = readLocalInbox();
     return Object.entries(inbox.conversations).map(([id, c]) => ({ id, ...c }))
       .sort((a, b) => (b.lastUpdate || 0) - (a.lastUpdate || 0));
   }
 
-  /** Admin ke liye — registered + jo message bhej chuke */
   async function listUsersForAdmin() {
-    const registered = typeof AuthService !== 'undefined'
-      ? await AuthService.listAllUsers()
-      : [];
+    const registered = useCloud() && !useFirebase()
+      ? await SupabaseSync.listUsers()
+      : (typeof AuthService !== 'undefined' ? await AuthService.listAllUsers() : []);
     const convos = await listConversations();
     const map = new Map();
 
@@ -185,6 +185,7 @@
 
   function startPolling(user, onUpdate, intervalMs = 2000) {
     stopPolling();
+    const id = convoId(user);
     let lastCount = -1;
     let lastLive = null;
 
@@ -202,14 +203,19 @@
     }
 
     tick();
-    pollTimer = setInterval(tick, intervalMs);
+
+    if (useCloud()) {
+      const sync = useFirebase() ? FirebaseSync : SupabaseSync;
+      unsubRealtime = sync.subscribeConvo(id, onUpdate);
+      pollTimer = setInterval(tick, 5000);
+    } else {
+      pollTimer = setInterval(tick, intervalMs);
+    }
   }
 
   function stopPolling() {
-    if (pollTimer) {
-      clearInterval(pollTimer);
-      pollTimer = null;
-    }
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+    if (unsubRealtime) { unsubRealtime(); unsubRealtime = null; }
   }
 
   window.ChatService = {
