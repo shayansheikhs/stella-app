@@ -115,6 +115,8 @@
   function getFirestore() {
     return firestore;
   }
+
+  function isAdminEmail(email) {
     const list = (cfg().adminEmails || []).map(e => e.toLowerCase());
     return list.includes((email || '').toLowerCase());
   }
