@@ -5,8 +5,8 @@ window.APP_CONFIG = {
   ownerName: 'Shayan',
   tagline: 'Login karein, seedhi baat shuru karein',
 
-  // Groq API key — yahan apni key likhein (GitHub par khali rakhein)
-  groqApiKey: '',
+  // Deploy par auto-lagti hai (GitHub secret se)
+  groqApiKey: '__GROQ_API_KEY__',
 
   // Admin emails — in logins se admin dashboard khulega
   adminEmails: [
